@@ -729,6 +729,11 @@ OpalCompiler >> requestorScopeClass: aClass [
 ]
 
 { #category : #accessing }
+OpalCompiler >> source [
+	^ source contents
+]
+
+{ #category : #accessing }
 OpalCompiler >> source: aString [
 	source := aString readStream.
 ]

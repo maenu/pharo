@@ -12,10 +12,15 @@ OCComplierClassDeprecationPlugin class >> initialize [
 { #category : #actions }
 OCComplierClassDeprecationPlugin class >> install [
 	<script>
-	(CompilationContext defaultTransformationPlugins includes: self)
+	self isInstalled
 		ifTrue: [ ^ self ].
 	CompilationContext addDefaultTransformationPlugin: self.
 	self recompileTransformableDeprecatedClassReferences
+]
+
+{ #category : #testing }
+OCComplierClassDeprecationPlugin class >> isInstalled [
+	^ CompilationContext defaultTransformationPlugins includes: self
 ]
 
 { #category : #private }
@@ -37,17 +42,21 @@ OCComplierClassDeprecationPlugin class >> recompileTransformableDeprecatedClassR
 { #category : #actions }
 OCComplierClassDeprecationPlugin class >> uninstall [
 	<script>
+	self isInstalled
+		ifFalse: [ ^ self ].
 	CompilationContext removeDefaultTransformationPlugin: self
 ]
 
 { #category : #testing }
 OCComplierClassDeprecationPlugin >> hasTransformableDeprecatedClassReferences [
-	^ ast allChildren
-		anySatisfy: [ :e | 
-			e isVariable
-				and: [ e isGlobal
-						and: [ e binding isGlobalClassNameBinding
-								and: [ self isTransformableDeprecatedClass: e binding value ] ] ] ]
+	^ ast methodNode isNotNil
+		and: [ ast methodNode selector isDoIt not
+				and: [ ast allChildren
+						anySatisfy: [ :e | 
+							e isVariable
+								and: [ e isGlobal
+										and: [ e binding isGlobalClassNameBinding
+												and: [ self isTransformableDeprecatedClass: e binding value ] ] ] ] ] ]
 ]
 
 { #category : #testing }
@@ -56,6 +65,16 @@ OCComplierClassDeprecationPlugin >> isTransformableDeprecatedClass: aClass [
 		and: [ (aClass classSide includesSelector: #isDeprecated)
 				and: [ (aClass classSide compiledMethodAt: #isDeprecated)
 						hasPragmaNamed: #transformTo: ] ]
+]
+
+{ #category : #api }
+OCComplierClassDeprecationPlugin >> isTransformableDeprecatedClassIsDeprecatedMethod [
+	| methodNode |
+	methodNode := ast methodNode.
+	^ methodNode isNotNil
+		and: [ methodNode selector = #isDeprecated
+				and: [ methodNode methodClass isClassSide
+						and: [ methodNode hasPragmaNamed: #transformTo: ] ] ]
 ]
 
 { #category : #'as yet unclassified' }
@@ -71,42 +90,31 @@ OCComplierClassDeprecationPlugin >> recompileMethodsReferencingMethodClass [
 ]
 
 { #category : #api }
-OCComplierClassDeprecationPlugin >> shouldRecompileMethodsReferencingMethodClass [
-	| methodNode |
-	methodNode := ast methodNode.
-	^ methodNode isNotNil
-		and: [ methodNode selector = #isDeprecated
-				and: [ methodNode methodClass isClassSide
-						and: [ methodNode hasPragmaNamed: #transformTo: ] ] ]
-]
-
-{ #category : #api }
-OCComplierClassDeprecationPlugin >> shouldTransformDeprecatedClassReferences [
-	| methodNode |
-	methodNode := ast methodNode.
-	^ methodNode isNotNil
-		and: [ methodNode selector isDoIt not
-				and: [ self hasTransformableDeprecatedClassReferences ] ]
-]
-
-{ #category : #api }
 OCComplierClassDeprecationPlugin >> transform [
-	self shouldRecompileMethodsReferencingMethodClass
+	self isTransformableDeprecatedClassIsDeprecatedMethod
 		ifTrue: [ self recompileMethodsReferencingMethodClass ].
-	self shouldTransformDeprecatedClassReferences
+	self hasTransformableDeprecatedClassReferences
 		ifTrue: [ self transformTransformableDeprecatedClassReferences ].
 	^ ast
 ]
 
 { #category : #'as yet unclassified' }
 OCComplierClassDeprecationPlugin >> transformTransformableDeprecatedClassReferences [
+	| changed |
+	changed := false.
 	self transformableDeprecatedClassReferences
 		do: [ :e | 
 			| replacement rule |
-			replacement := ((e classSide compiledMethodAt: #isDeprecated)
-				pragmaNamed: #transformTo:) arguments first.
+			replacement := ((e binding value classSide
+				compiledMethodAt: #isDeprecated) pragmaAt: #transformTo:)
+				arguments first.
 			rule := RBParseTreeRewriter new replace: e name with: replacement.
-			rule executeTree: e ]
+			(rule executeTree: e)
+				ifTrue: [ e replaceWith: rule tree.
+					changed := true ] ].
+	changed
+		ifTrue: [ Halt once.
+			(ReparseAfterSourceEditing new newSource: ast formattedCode) signal ]
 ]
 
 { #category : #testing }

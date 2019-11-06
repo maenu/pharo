@@ -144,6 +144,11 @@ AbstractCompiler >> requestorScopeClass: aClass [
 ]
 
 { #category : #accessing }
+AbstractCompiler >> source [
+	self subclassResponsibility
+]
+
+{ #category : #accessing }
 AbstractCompiler >> source: aString [
 	self subclassResponsibility
 ]
