@@ -113,8 +113,8 @@ OCComplierClassDeprecationPlugin >> transformTransformableDeprecatedClassReferen
 				ifTrue: [ e replaceWith: rule tree.
 					changed := true ] ].
 	changed
-		ifTrue: [ Halt once.
-			(ReparseAfterSourceEditing new newSource: ast formattedCode) signal ]
+		ifTrue:
+			[ (ReparseAfterSourceEditing new newSource: ast formattedCode) signal ]
 ]
 
 { #category : #testing }
