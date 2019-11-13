@@ -83,5 +83,13 @@ OCComplierClassDeprecationPluginTest >> testFirstInstallPluginThenDeprecateWithT
 	1.
 	self class.
 	OCForTestReplacement.
-	OCForTestReferencing}'
+	OCForTestReferencing}'.
+	self
+		assert: referencing new references
+		equals:
+			{replacement.
+			1.
+			referencing.
+			replacement.
+			referencing}
 ]
